@@ -1,6 +1,6 @@
 use core::result::Result;
 use macros::Size;
-use utils::{WriteError, Writer};
+use utils::writer::{WriteError, Writer};
 
 use super::{HCIPacket, gap::AdvertisingData};
 

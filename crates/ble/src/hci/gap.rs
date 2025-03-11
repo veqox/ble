@@ -1,7 +1,7 @@
 use core::mem::size_of_val;
 
 use macros::{FromU8, IntoU8};
-use utils::{WriteError, Writer};
+use utils::writer::{WriteError, Writer};
 
 pub const AD_FLAG_LIMITED_DISCOVERABLE_MODE: u8 = 0b0000_0001;
 pub const AD_FLAG_GENERAL_DISCOVERABLE_MODE: u8 = 0b0000_0010;

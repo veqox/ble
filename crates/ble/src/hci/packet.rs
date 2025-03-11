@@ -1,5 +1,5 @@
 use core::{any::type_name, fmt::Debug};
-use utils::Reader;
+use utils::reader::Reader;
 
 // Bluetooth Core spec 6.0 | [Vol 4] Part A, Section 2 | page 1726
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use macros::{FromU8, IntoU8};
-use utils::Reader;
+use utils::reader::Reader;
 
 use super::{
     HCIEventPacket,
