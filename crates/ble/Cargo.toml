@@ -6,7 +6,9 @@ edition = "2024"
 [dependencies]
 macros = { workspace = true }
 utils = { workspace = true }
-log = { workspace = true }
+
+log = { version = "0.4.26" }
+
 
 [lib]
 test = false

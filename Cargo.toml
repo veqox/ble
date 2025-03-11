@@ -6,5 +6,3 @@ default-members = ["crates/ble"]
 [workspace.dependencies]
 utils = { path = "crates/utils" }
 macros = { path = "crates/macros" }
-
-log = { version = "0.4.26" }
