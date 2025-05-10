@@ -81,58 +81,186 @@ pub enum HCIEvent<'p> {
     LEMetaEvent(LEMetaEvent<'p>),                      // 7.7.65
 }
 
+#[derive(Debug)]
+pub enum HciParseError<'p> {
+    InvalidField {
+        field: &'p str,
+        position: usize,
+    },
+    OutOfBounds {
+        field: &'p str,
+        position: usize,
+    },
+    InvalidLength {
+        field: &'p str,
+        expected: usize,
+        found: usize,
+    },
+    NotImplemented {
+        evcode: u8,
+        sub_evcode: Option<u8>,
+    },
+}
+
 impl<'p> HCIEvent<'p> {
-    pub fn from_packet(packet: &'p HCIEventPacket) -> Option<HCIEvent<'p>> {
+    pub fn from_packet(packet: &'p HCIEventPacket) -> Result<HCIEvent<'p>, HciParseError<'p>> {
         let mut reader = Reader::new(packet.parameters);
 
-        Some(match packet.evcode.into() {
+        Ok(match packet.evcode.into() {
             HCIEventCode::DisconnectionComplete => {
                 HCIEvent::DisconnectionComplete(DisconnectionCompleteEvent {
-                    status: reader.read_u8()?,
-                    connection_handle: reader.read_u16()?,
-                    reason: reader.read_u8()?,
+                    status: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                        field: "status",
+                        position: reader.pos,
+                    })?,
+                    connection_handle: reader.read_u16().ok_or(HciParseError::OutOfBounds {
+                        field: "connection_handle",
+                        position: reader.pos,
+                    })?,
+                    reason: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                        field: "reason",
+                        position: reader.pos,
+                    })?,
                 })
             }
             HCIEventCode::CommandComplete => HCIEvent::CommandComplete(CommandCompleteEvent {
-                num_hci_command_packets: reader.read_u8()?,
-                command_opcode: reader.read_u16()?,
-                return_parameters: reader.read_u8_slice(packet.len - reader.pos)?,
+                num_hci_command_packets: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                    field: "num_hci_command_packets",
+                    position: reader.pos,
+                })?,
+                command_opcode: reader.read_u16().ok_or(HciParseError::OutOfBounds {
+                    field: "command_opcode",
+                    position: reader.pos,
+                })?,
+                return_parameters: reader.read_u8_slice(packet.len - reader.pos).ok_or(
+                    HciParseError::OutOfBounds {
+                        field: "return_parameters",
+                        position: reader.pos,
+                    },
+                )?,
             }),
-            HCIEventCode::LEMetaEvent => HCIEvent::LEMetaEvent(match reader.read_u8()?.into() {
-                SubeventCode::ConnectionComplete => {
-                    LEMetaEvent::ConnectionComplete(ConnectionCompleteEvent {
-                        status: reader.read_u8()?,
-                        connection_handle: reader.read_u16()?,
-                        role: reader.read_u8()?,
-                        peer_address_type: reader.read_u8()?,
-                        peer_address: reader.read_u8_slice(6)?,
-                        connection_interval: reader.read_u16()?,
-                        peripheral_latency: reader.read_u16()?,
-                        supervision_timeout: reader.read_u16()?,
-                        central_clock_accuracy: reader.read_u8()?,
-                    })
-                }
+            HCIEventCode::LEMetaEvent => HCIEvent::LEMetaEvent(
+                match reader
+                    .read_u8()
+                    .ok_or(HciParseError::OutOfBounds {
+                        field: "sub_event_code",
+                        position: reader.pos,
+                    })?
+                    .into()
+                {
+                    SubeventCode::ConnectionComplete => {
+                        LEMetaEvent::ConnectionComplete(ConnectionCompleteEvent {
+                            status: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                                field: "status",
+                                position: reader.pos,
+                            })?,
+                            connection_handle: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "connection_handle",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            role: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                                field: "role",
+                                position: reader.pos,
+                            })?,
+                            peer_address_type: reader.read_u8().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "peer_address_type",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            peer_address: reader.read_u8_slice(6).ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "peer_address",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            connection_interval: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "connection_interval",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            peripheral_latency: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "peripheral_latency",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            supervision_timeout: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "supervision_timeout",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            central_clock_accuracy: reader.read_u8().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "central_clock_accuracy",
+                                    position: reader.pos,
+                                },
+                            )?,
+                        })
+                    }
 
-                SubeventCode::AdvertisingReport => {
-                    LEMetaEvent::AdvertisingReport(AdvertisingReportIterator {
-                        num_reports: reader.read_u8()?,
-                        reader: Reader::new(reader.read_u8_slice(packet.len - reader.pos)?),
-                    })
-                }
-                SubeventCode::ConnectionUpdateComplete => {
-                    LEMetaEvent::ConnectionUpdateComplete(ConnectionUpdateCompleteEvent {
-                        status: reader.read_u8()?,
-                        connection_handle: reader.read_u16()?,
-                        connection_interval: reader.read_u16()?,
-                        peripheral_latency: reader.read_u16()?,
-                        supervision_timeout: reader.read_u16()?,
-                    })
-                }
-                code => {
-                    log::warn!("{:?} is not implemented skipping", code);
-                    return None;
-                }
-            }),
+                    SubeventCode::AdvertisingReport => {
+                        LEMetaEvent::AdvertisingReport(AdvertisingReportIterator {
+                            num_reports: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                                field: "num_reports",
+                                position: reader.pos,
+                            })?,
+                            reader: Reader::new(
+                                reader.read_u8_slice(packet.len - reader.pos).ok_or(
+                                    HciParseError::OutOfBounds {
+                                        field: "reports",
+                                        position: reader.pos,
+                                    },
+                                )?,
+                            ),
+                        })
+                    }
+                    SubeventCode::ConnectionUpdateComplete => {
+                        LEMetaEvent::ConnectionUpdateComplete(ConnectionUpdateCompleteEvent {
+                            status: reader.read_u8().ok_or(HciParseError::OutOfBounds {
+                                field: "status",
+                                position: reader.pos,
+                            })?,
+                            connection_handle: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "connection_handle",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            connection_interval: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "connection_interval",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            peripheral_latency: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "peripheral_latency",
+                                    position: reader.pos,
+                                },
+                            )?,
+                            supervision_timeout: reader.read_u16().ok_or(
+                                HciParseError::OutOfBounds {
+                                    field: "supervision_timeout",
+                                    position: reader.pos,
+                                },
+                            )?,
+                        })
+                    }
+                    code => {
+                        log::warn!("{:?} is not implemented skipping", code);
+
+                        return Err(HciParseError::NotImplemented {
+                            evcode: HCIEventCode::LEMetaEvent.into(),
+                            sub_evcode: Some(code.into()),
+                        });
+                    }
+                },
+            ),
         })
     }
 }
@@ -294,5 +422,46 @@ impl<'p> Iterator for AdvertisingDataIterator<'p> {
                 ))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_disconnection_complete_event() {
+        let packet = HCIEventPacket {
+            evcode: HCIEventCode::DisconnectionComplete.into(),
+            len: 4,
+            parameters: &[0x00, 0x01, 0x00, 0x00],
+        };
+
+        let event = HCIEvent::from_packet(&packet);
+
+        assert!(event.is_ok());
+
+        log::info!("{:?}", event);
+
+        let event = event.unwrap();
+
+        if let HCIEvent::DisconnectionComplete(event) = event {
+            assert_eq!(event.status, 0x00);
+            assert_eq!(event.connection_handle, 0x0001);
+            assert_eq!(event.reason, 0x13);
+        } else {
+            panic!("Unexpected event type");
+        }
+    }
+
+    #[test]
+    fn test_invalid_disconnection_complete_event() {
+        let packet = HCIEventPacket {
+            evcode: HCIEventCode::DisconnectionComplete.into(),
+            len: 3,                          // Incorrect length
+            parameters: &[0x00, 0x01, 0x00], // Missing Reason field
+        };
+
+        assert!(HCIEvent::from_packet(&packet).is_err());
     }
 }

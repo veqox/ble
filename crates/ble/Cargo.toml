@@ -8,8 +8,3 @@ macros = { workspace = true }
 utils = { workspace = true }
 
 log = { version = "0.4.26" }
-
-
-[lib]
-test = false
-bench = false

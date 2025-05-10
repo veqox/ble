@@ -1,21 +1,4 @@
-use core::{error::Error, fmt::Display};
-
 use crate::slice;
-
-#[derive(Debug)]
-pub enum ReadError {
-    BufferOverflow,
-}
-
-impl Display for ReadError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            Self::BufferOverflow => write!(f, "BufferOverflow"),
-        }
-    }
-}
-
-impl Error for ReadError {}
 
 #[derive(Debug)]
 pub struct Reader<'p> {
@@ -117,14 +100,14 @@ impl<'p> Reader<'p> {
         Some(slice)
     }
 
-    pub fn seek(&mut self, pos: usize) -> Result<(), ReadError> {
+    pub fn seek(&mut self, pos: usize) -> Option<usize> {
         if pos > self.buf.len() {
-            return Err(ReadError::BufferOverflow);
+            return None;
         }
 
         self.pos = pos;
 
-        Ok(())
+        Some(self.pos)
     }
 
     pub fn remaining(&self) -> usize {
